@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Attendance</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <style>
+/* ═══════════════════════════════════════════
+   DESIGN TOKENS — OBSIDIAN GLOSSY SYSTEM
+═══════════════════════════════════════════ */
+:root {
+    --void:        #03040a;
+    --obsidian:    #07090f;
+    --deep:        #0c0f1a;
+    --surface:     #111827;
+    --raised:      #161d2e;
+    --float:       #1c2438;
+
+    --glass-1:     rgba(255,255,255,0.030);
+    --glass-2:     rgba(255,255,255,0.055);
+    --glass-3:     rgba(255,255,255,0.080);
+    --glass-4:     rgba(255,255,255,0.12);
+
+    --prism-1:    #00d4ff;
+    --prism-2:    #7b6cff;
+    --prism-3:    #ff6eb4;
+    --prism-4:    #00ffb3;
+    --prism-5:    #ffd166;
+
+    --chrome: linear-gradient(135deg,
+        #c8d6e8 0%, #ffffff 20%, #8aafd4 40%,
+        #ddeeff 60%, #a0c0e8 80%, #e8f4ff 100%
+    );
+
+    --glow-cyan:   rgba(0,212,255,0.22);
+    --glow-violet: rgba(123,108,255,0.22);
+    --glow-pink:   rgba(255,110,180,0.22);
+
+    --t1: #f0f6ff;
+    --t2: #8ba3c4;
+    --t3: #3d5474;
+    --t4: #1e2d44;
+
+    --r-xs:  6px;
+    --r-sm:  10px;
+    --r-md:  16px;
+    --r-lg:  22px;
+    --r-xl:  30px;
+    --r-2xl: 40px;
+
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--void);
+    color: var(--t1);
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: default;
+}
+
+/* ── Layered background atmosphere ── */
+body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+        radial-gradient(ellipse 120% 80% at 15% 10%,  rgba(0,212,255,0.07)  0%, transparent 55%),
+        radial-gradient(ellipse 80%  70% at 85% 5%,   rgba(123,108,255,0.09) 0%, transparent 50%),
+        radial-gradient(ellipse 60%  60% at 50% 100%, rgba(255,110,180,0.05) 0%, transparent 50%),
+        radial-gradient(ellipse 100% 50% at 50% 50%,  rgba(0,255,179,0.025) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+    animation: atmo-shift 25s ease-in-out infinite alternate;
+}
+
+@keyframes atmo-shift {
+    0%   { opacity: 1; transform: scale(1) rotate(0deg); }
+    50%  { opacity: 0.7; }
+    100% { opacity: 1; transform: scale(1.08) rotate(1.5deg); }
+}
+
+body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+        linear-gradient(105deg, transparent 30%, rgba(0,212,255,0.03) 50%, transparent 70%),
+        linear-gradient(75deg,  transparent 40%, rgba(123,108,255,0.025) 55%, transparent 72%);
+    pointer-events: none; z-index: 0;
+}
+
+/* ═══════════════════════════════════════════
+   FLOATING BACKGROUND PHOTOS
+═══════════════════════════════════════════ */
+#bg-photo-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.bg-photo {
+    position: absolute;
+    border-radius: 16px;
+    overflow: hidden;
+    opacity: 0;
+    will-change: transform, opacity;
+    transition: opacity 1.2s ease;
+    box-shadow:
+        0 0 0 1px rgba(0,212,255,0.15),
+        0 8px 40px rgba(0,0,0,0.7),
+        0 0 30px rgba(0,212,255,0.08);
+}
+
+.bg-photo.visible {
+    opacity: 1;
+}
+
+.bg-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: saturate(0.6) brightness(0.55);
+}
+
+/* Glossy overlay on each photo */
+.bg-photo::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(145deg,
+        rgba(0,212,255,0.08) 0%,
+        transparent 40%,
+        rgba(123,108,255,0.06) 100%
+    );
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Scanline on each photo */
+.bg-photo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.06) 3px,
+        rgba(0,0,0,0.06) 4px
+    );
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+/* Face recognition scan ring on some photos */
+.bg-photo .scan-ring {
+    position: absolute;
+    width: 60%;
+    height: 60%;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border: 1.5px solid rgba(0,212,255,0.45);
+    border-radius: 50%;
+    z-index: 3;
+    pointer-events: none;
+    animation: scan-spin 8s linear infinite;
+}
+
+.bg-photo .scan-ring::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    border-top-color: rgba(0,212,255,0.6);
+    animation: scan-spin 3s linear infinite reverse;
+}
+
+.bg-photo .scan-dot {
+    position: absolute;
+    bottom: 12px; left: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 4;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem;
+    color: rgba(0,212,255,0.7);
+    letter-spacing: 0.1em;
+}
+
+.bg-photo .scan-dot::before {
+    content: '';
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--prism-4);
+    box-shadow: 0 0 8px var(--prism-4);
+    animation: live-pulse 2s ease-in-out infinite;
+}
+
+/* Corner bracket decorations */
+.bg-photo .corner {
+    position: absolute;
+    width: 14px; height: 14px;
+    z-index: 3;
+}
+.bg-photo .corner::before,
+.bg-photo .corner::after {
+    content: '';
+    position: absolute;
+    background: rgba(0,212,255,0.7);
+}
+.bg-photo .corner.tl { top: 8px; left: 8px; }
+.bg-photo .corner.tr { top: 8px; right: 8px; }
+.bg-photo .corner.bl { bottom: 8px; left: 8px; }
+.bg-photo .corner.br { bottom: 8px; right: 8px; }
+
+.bg-photo .corner.tl::before { width: 2px; height: 100%; top: 0; left: 0; }
+.bg-photo .corner.tl::after  { width: 100%; height: 2px; top: 0; left: 0; }
+.bg-photo .corner.tr::before { width: 2px; height: 100%; top: 0; right: 0; }
+.bg-photo .corner.tr::after  { width: 100%; height: 2px; top: 0; right: 0; }
+.bg-photo .corner.bl::before { width: 2px; height: 100%; bottom: 0; left: 0; }
+.bg-photo .corner.bl::after  { width: 100%; height: 2px; bottom: 0; left: 0; }
+.bg-photo .corner.br::before { width: 2px; height: 100%; bottom: 0; right: 0; }
+.bg-photo .corner.br::after  { width: 100%; height: 2px; bottom: 0; right: 0; }
+
+@keyframes scan-spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes float-a {
+    0%   { transform: translateY(0px) rotate(var(--rot)) scale(1); }
+    33%  { transform: translateY(-18px) rotate(calc(var(--rot) + 1.5deg)) scale(1.015); }
+    66%  { transform: translateY(10px) rotate(calc(var(--rot) - 1deg)) scale(0.99); }
+    100% { transform: translateY(0px) rotate(var(--rot)) scale(1); }
+}
+
+@keyframes float-b {
+    0%   { transform: translateY(0px) rotate(var(--rot)) scale(1); }
+    40%  { transform: translateY(14px) rotate(calc(var(--rot) - 2deg)) scale(1.01); }
+    80%  { transform: translateY(-20px) rotate(calc(var(--rot) + 1deg)) scale(0.985); }
+    100% { transform: translateY(0px) rotate(var(--rot)) scale(1); }
+}
+
+/* A dim full-screen overlay so photos don't distract from UI */
+#bg-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 70% 60% at 50% 45%,
+            rgba(3,4,10,0.0) 0%,
+            rgba(3,4,10,0.55) 60%,
+            rgba(3,4,10,0.88) 100%
+        );
+}
+
+/* ═══════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════ */
+.hero {
+    position: relative; z-index: 2;
+    padding: 6rem 2rem 5rem;
+    text-align: center;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(0,212,255,0.08);
+}
+
+.hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(0,212,255,0.12) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(ellipse 90% 100% at 50% 0%, black 0%, transparent 75%);
+    pointer-events: none;
+}
+
+.hero::after {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    top: -200px; left: 50%; transform: translateX(-50%);
+    background: radial-gradient(circle,
+        rgba(0,212,255,0.09) 0%, rgba(123,108,255,0.07) 40%, transparent 70%
+    );
+    border-radius: 50%;
+    pointer-events: none;
+    animation: orb-breathe 8s ease-in-out infinite;
+}
+
+@keyframes orb-breathe {
+    0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
+    50%       { transform: translateX(-50%) scale(1.15); opacity: 0.75; }
+}
+
+.eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    position: relative; z-index: 2;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem; font-weight: 400;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--prism-1);
+    margin-bottom: 22px;
+    opacity: 0.85;
+}
+.eyebrow::before, .eyebrow::after {
+    content: ''; display: block; width: 32px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--prism-1));
+}
+.eyebrow::after { background: linear-gradient(90deg, var(--prism-1), transparent); }
+
+.hero h1 {
+    position: relative; z-index: 2;
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    font-weight: 800; line-height: 1.05;
+    letter-spacing: -0.03em;
+    background: linear-gradient(160deg,
+        #e8f4ff 0%, #ffffff 18%, #a8d4f5 35%,
+        #ddf0ff 52%, #8bbfe8 68%, #f0f8ff 85%, #c4dff5 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 40px rgba(0,212,255,0.25)) drop-shadow(0 2px 8px rgba(0,0,0,0.8));
+}
+
+.subtitle {
+    position: relative; z-index: 2;
+    margin-top: 18px;
+    font-size: 1rem; font-weight: 300;
+    color: var(--t2); max-width: 480px;
+    margin-inline: auto; line-height: 1.75;
+}
+
+.hero-actions {
+    position: relative; z-index: 2;
+    margin-top: 36px;
+    display: flex; justify-content: center; align-items: center; gap: 16px;
+}
+
+/* ═══════════════════════════════════════════
+   STATUS PILL
+═══════════════════════════════════════════ */
+.status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem; font-weight: 400;
+    letter-spacing: 0.06em;
+    padding: 8px 18px;
+    border-radius: 999px;
+    color: var(--prism-4);
+    background: linear-gradient(135deg, rgba(0,255,179,0.07) 0%, rgba(0,255,179,0.03) 100%);
+    border: 1px solid rgba(0,255,179,0.2);
+    box-shadow: 0 0 20px rgba(0,255,179,0.08), inset 0 1px 0 rgba(255,255,255,0.06);
+    backdrop-filter: blur(12px);
+}
+.status-pill::before {
+    content: '';
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--prism-4);
+    box-shadow: 0 0 10px var(--prism-4), 0 0 20px rgba(0,255,179,0.5);
+    animation: live-pulse 2.4s ease-in-out infinite;
+}
+@keyframes live-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%       { transform: scale(0.6); opacity: 0.4; }
+}
+
+/* ═══════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════ */
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 26px;
+    border-radius: var(--r-md);
+    border: none;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem; font-weight: 600;
+    cursor: pointer;
+    position: relative; overflow: hidden;
+    transition: all 0.3s var(--ease-smooth);
+    letter-spacing: 0.01em;
+}
+.btn::after {
+    content: '';
+    position: absolute;
+    top: -50%; left: -75%;
+    width: 50%; height: 200%;
+    background: linear-gradient(105deg, transparent, rgba(255,255,255,0.18), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.5s ease;
+}
+.btn:hover::after { left: 125%; }
+
+.btn-primary {
+    background: linear-gradient(135deg,
+        rgba(0,212,255,0.9) 0%, rgba(50,100,255,0.9) 50%, rgba(123,108,255,0.9) 100%
+    );
+    color: #fff;
+    box-shadow:
+        0 0 30px rgba(0,212,255,0.3), 0 8px 32px rgba(0,0,0,0.4),
+        inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -1px 0 rgba(0,0,0,0.2);
+}
+.btn-primary:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 0 50px rgba(0,212,255,0.45), 0 16px 48px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.3);
+}
+.btn-primary:active { transform: translateY(0) scale(0.99); }
+
+.btn-secondary {
+    background: var(--glass-2);
+    color: var(--t1);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(16px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 4px 20px rgba(0,0,0,0.3);
+}
+.btn-secondary:hover {
+    transform: translateY(-2px);
+    background: var(--glass-3);
+    border-color: rgba(0,212,255,0.3);
+    box-shadow: 0 0 25px rgba(0,212,255,0.12), 0 8px 30px rgba(0,0,0,0.35),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    color: var(--prism-1);
+}
+
+/* ═══════════════════════════════════════════
+   DASHBOARD
+═══════════════════════════════════════════ */
+.dashboard {
+    position: relative; z-index: 2;
+    max-width: 1360px; margin: auto;
+    padding: 56px 28px 100px;
+}
+
+/* ═══════════════════════════════════════════
+   METRIC CARDS
+═══════════════════════════════════════════ */
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 18px; margin-bottom: 44px;
+}
+
+.metric-card {
+    position: relative; overflow: hidden;
+    border-radius: var(--r-xl);
+    padding: 34px 30px;
+    background: linear-gradient(145deg, rgba(28,36,56,0.95) 0%, rgba(12,15,26,0.98) 100%);
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow:
+        0 1px 0 rgba(255,255,255,0.06) inset, 0 -1px 0 rgba(0,0,0,0.5) inset,
+        0 20px 60px rgba(0,0,0,0.5), 0 4px 20px rgba(0,0,0,0.4);
+    cursor: default;
+    transition: all 0.4s var(--ease-smooth);
+}
+.metric-card::before {
+    content: '';
+    position: absolute; top: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+}
+.metric-card::after {
+    content: '';
+    position: absolute;
+    width: 120px; height: 120px;
+    top: -40px; right: -40px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,212,255,0.18) 0%, transparent 70%);
+    transition: all 0.4s ease; opacity: 0;
+}
+.metric-card:hover {
+    transform: translateY(-6px) scale(1.01);
+    border-color: rgba(0,212,255,0.2);
+    box-shadow:
+        0 0 0 1px rgba(0,212,255,0.08), 0 0 60px rgba(0,212,255,0.12),
+        0 30px 80px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.1) inset;
+}
+.metric-card:hover::after { opacity: 1; }
+.metric-card:nth-child(1)::after { background: radial-gradient(circle, rgba(0,212,255,0.2)    0%, transparent 70%); }
+.metric-card:nth-child(2)::after { background: radial-gradient(circle, rgba(0,255,179,0.18)   0%, transparent 70%); }
+.metric-card:nth-child(3)::after { background: radial-gradient(circle, rgba(123,108,255,0.18) 0%, transparent 70%); }
+.metric-card:nth-child(4)::after { background: radial-gradient(circle, rgba(255,110,180,0.18) 0%, transparent 70%); }
+
+.metric-card p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem; font-weight: 400;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--t3); margin-bottom: 16px;
+    position: relative; z-index: 1;
+}
+.metric-card h3 {
+    font-size: 3rem; font-weight: 800; line-height: 1;
+    position: relative; z-index: 1;
+    background: var(--chrome);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 8px rgba(0,212,255,0.2));
+}
+.metric-card:nth-child(2) h3 {
+    background: linear-gradient(135deg, #a0ffdc, #ffffff, #44ffbb);
+    -webkit-background-clip: text; background-clip: text;
+}
+.metric-card:nth-child(3) h3 {
+    background: linear-gradient(135deg, #c4bfff, #ffffff, #8b7fff);
+    -webkit-background-clip: text; background-clip: text;
+}
+.metric-card:nth-child(4) h3 {
+    background: linear-gradient(135deg, #ffb3d0, #ffffff, #ff6eb4);
+    -webkit-background-clip: text; background-clip: text;
+}
+
+/* ═══════════════════════════════════════════
+   PANELS
+═══════════════════════════════════════════ */
+.panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
+    gap: 22px;
+}
+
+.panel {
+    position: relative; overflow: hidden;
+    border-radius: var(--r-xl);
+    background: linear-gradient(160deg, rgba(22,29,46,0.96) 0%, rgba(10,13,22,0.98) 100%);
+    border: 1px solid rgba(255,255,255,0.065);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.4),
+        0 24px 80px rgba(0,0,0,0.55), 0 4px 20px rgba(0,0,0,0.4);
+    display: flex; flex-direction: column;
+    transition: all 0.35s var(--ease-smooth);
+}
+.panel::before {
+    content: '';
+    position: absolute; top: 0; left: 5%; right: 5%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    pointer-events: none;
+}
+.panel::after {
+    content: '';
+    position: absolute; top: -60px; right: -60px;
+    width: 180px; height: 180px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,212,255,0.06) 0%, transparent 70%);
+    pointer-events: none; transition: opacity 0.4s;
+}
+.panel:hover {
+    border-color: rgba(0,212,255,0.14);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.09), 0 0 0 1px rgba(0,212,255,0.06),
+        0 0 50px rgba(0,212,255,0.07), 0 32px 100px rgba(0,0,0,0.6);
+    transform: translateY(-2px);
+}
+
+.panel-head {
+    padding: 24px 28px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, transparent 100%);
+}
+.panel-head::after {
+    content: '';
+    position: absolute; bottom: -1px; left: 28px;
+    width: 48px; height: 2px;
+    background: linear-gradient(90deg, var(--prism-1), var(--prism-2));
+    border-radius: 1px;
+    box-shadow: 0 0 12px rgba(0,212,255,0.6);
+}
+.panel-head h2 {
+    font-size: 1.1rem; font-weight: 700; letter-spacing: -0.01em;
+    background: linear-gradient(90deg, #e8f4ff, #8bbfe8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.panel-head p { font-size: 0.78rem; font-weight: 300; color: var(--t3); margin-top: 5px; }
+
+/* ═══════════════════════════════════════════
+   FORMS
+═══════════════════════════════════════════ */
+.stack-form {
+    padding: 24px 28px;
+    display: flex; flex-direction: column;
+}
+.stack-form label {
+    display: flex; flex-direction: column; gap: 7px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem; font-weight: 400;
+    text-transform: uppercase; letter-spacing: 0.16em;
+    color: var(--t3); margin-bottom: 14px;
+}
+.stack-form input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: var(--r-sm);
+    border: 1px solid rgba(255,255,255,0.07);
+    background: linear-gradient(135deg, rgba(8,12,22,0.9) 0%, rgba(14,20,35,0.9) 100%);
+    color: var(--t1);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem; font-weight: 400;
+    outline: none;
+    transition: all 0.25s var(--ease-smooth);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.stack-form input::placeholder { color: var(--t4); }
+.stack-form input:focus {
+    border-color: rgba(0,212,255,0.4);
+    background: linear-gradient(135deg, rgba(0,212,255,0.04) 0%, rgba(8,12,22,0.95) 100%);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.08), 0 0 20px rgba(0,212,255,0.08),
+        inset 0 2px 6px rgba(0,0,0,0.3);
+}
+.stack-form input[type="file"] { padding: 10px 14px; cursor: pointer; color: var(--t2); }
+.stack-form input[type="file"]::-webkit-file-upload-button {
+    background: linear-gradient(135deg, rgba(0,212,255,0.12), rgba(0,212,255,0.06));
+    border: 1px solid rgba(0,212,255,0.25);
+    color: var(--prism-1);
+    padding: 5px 14px;
+    border-radius: var(--r-xs);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.78rem; font-weight: 500;
+    cursor: pointer; margin-right: 12px;
+    transition: all 0.2s ease;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.stack-form input[type="file"]::-webkit-file-upload-button:hover {
+    background: linear-gradient(135deg, rgba(0,212,255,0.22), rgba(0,212,255,0.12));
+    box-shadow: 0 0 12px rgba(0,212,255,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.stack-form .btn { margin-top: 8px; width: 100%; padding: 14px; font-size: 0.92rem; }
+
+/* ═══════════════════════════════════════════
+   FEEDBACK
+═══════════════════════════════════════════ */
+.feedback {
+    margin: 0 28px 22px;
+    padding: 12px 18px;
+    border-radius: var(--r-sm);
+    font-size: 0.84rem; font-weight: 400;
+    display: none; line-height: 1.55;
+    backdrop-filter: blur(10px);
+    animation: pop-in 0.25s var(--ease-spring);
+}
+@keyframes pop-in {
+    from { opacity: 0; transform: scale(0.97) translateY(-4px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+.feedback.show { display: block; }
+.feedback.success {
+    background: linear-gradient(135deg, rgba(0,255,179,0.07), rgba(0,255,179,0.03));
+    border: 1px solid rgba(0,255,179,0.2);
+    color: var(--prism-4);
+    box-shadow: 0 0 20px rgba(0,255,179,0.06), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.feedback.error {
+    background: linear-gradient(135deg, rgba(255,110,180,0.08), rgba(255,110,180,0.03));
+    border: 1px solid rgba(255,110,180,0.2);
+    color: var(--prism-3);
+    box-shadow: 0 0 20px rgba(255,110,180,0.06), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* ═══════════════════════════════════════════
+   ACTIVITY LIST
+═══════════════════════════════════════════ */
+.activity-list { list-style: none; flex: 1; }
+.activity-list li {
+    padding: 15px 28px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.84rem; font-weight: 300;
+    color: var(--t2);
+    display: flex; align-items: center; gap: 12px;
+    transition: all 0.2s ease;
+    position: relative;
+}
+.activity-list li::before {
+    content: '';
+    flex-shrink: 0;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--prism-1); opacity: 0.25;
+    box-shadow: 0 0 8px var(--prism-1);
+    transition: all 0.2s ease;
+}
+.activity-list li:hover {
+    background: rgba(0,212,255,0.025); color: var(--t1); padding-left: 34px;
+}
+.activity-list li:hover::before { opacity: 0.8; box-shadow: 0 0 14px var(--prism-1); }
+.activity-list li:last-child { border-bottom: none; }
+
+/* ═══════════════════════════════════════════
+   CAMERA / VIDEO
+═══════════════════════════════════════════ */
+.capture-wrap { padding: 0 28px 24px; }
+#cameraPreview {
+    width: 100%;
+    border-radius: var(--r-md);
+    margin-bottom: 14px; display: none;
+    background: var(--void);
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.6), 0 0 30px rgba(0,212,255,0.06);
+}
+.capture-actions { display: flex; gap: 10px; }
+.capture-actions .btn { flex: 1; }
+
+/* ═══════════════════════════════════════════
+   CHART
+═══════════════════════════════════════════ */
+.chart-wrap {
+    padding: 20px 24px 28px;
+    position: relative; height: 330px;
+}
+.chart-wrap::before {
+    content: '';
+    position: absolute; bottom: 20px; left: 10%; right: 10%; height: 40px;
+    background: radial-gradient(ellipse, rgba(0,212,255,0.07) 0%, transparent 70%);
+    pointer-events: none;
+}
+#attendanceChart { width: 100% !important; height: 100% !important; position: relative; z-index: 1; }
+
+/* ═══════════════════════════════════════════
+   SCROLLBAR / SELECTION
+═══════════════════════════════════════════ */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--void); }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--prism-1), var(--prism-2));
+    border-radius: 3px; opacity: 0.4;
+}
+::selection { background: rgba(0,212,255,0.25); color: #fff; }
+
+/* ═══════════════════════════════════════════
+   STAGGERED LOAD
+═══════════════════════════════════════════ */
+.metric-card { animation: rise-in 0.6s var(--ease-spring) both; }
+.metric-card:nth-child(1) { animation-delay: 0.05s; }
+.metric-card:nth-child(2) { animation-delay: 0.12s; }
+.metric-card:nth-child(3) { animation-delay: 0.19s; }
+.metric-card:nth-child(4) { animation-delay: 0.26s; }
+
+.panel { animation: rise-in 0.6s var(--ease-spring) both; }
+.panel:nth-child(1) { animation-delay: 0.30s; }
+.panel:nth-child(2) { animation-delay: 0.38s; }
+.panel:nth-child(3) { animation-delay: 0.46s; }
+.panel:nth-child(4) { animation-delay: 0.54s; }
+
+@keyframes rise-in {
+    from { opacity: 0; transform: translateY(24px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media (max-width: 640px) {
+    .panel-grid { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .hero h1 { font-size: 2.1rem; }
+    .hero-actions { flex-direction: column; align-items: center; }
+    .dashboard { padding: 32px 16px 60px; }
+    .bg-photo { display: none; }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<!-- ═══════════ BACKGROUND PHOTO LAYER ═══════════ -->
+<div id="bg-photo-layer"></div>
+<div id="bg-overlay"></div>
+
+<div class="hero">
+    <p class="eyebrow">AI-Powered Attendance Intelligence</p>
+    <h1>Smart Attendance Control Center</h1>
+    <p class="subtitle">
+        Register faces, mark attendance in seconds, and monitor trends in one dashboard.
+    </p>
+    <div class="hero-actions">
+        <button class="btn btn-secondary" id="refreshDashboardBtn" type="button">Refresh Dashboard</button>
+        <span class="status-pill" id="apiStatus">Checking API...</span>
+    </div>
+</div>
+
+<main class="dashboard">
+    <section class="metrics">
+        <article class="metric-card">
+            <p>Total Students</p>
+            <h3 id="metricTotalStudents">0</h3>
+        </article>
+        <article class="metric-card">
+            <p>Present Today</p>
+            <h3 id="metricPresentToday">0</h3>
+        </article>
+        <article class="metric-card">
+            <p>Attendance Rate</p>
+            <h3 id="metricAttendanceRate">0%</h3>
+        </article>
+        <article class="metric-card">
+            <p>Unknown Face Alerts</p>
+            <h3 id="metricUnknownAlerts">0</h3>
+        </article>
+    </section>
+
+    <section class="panel-grid">
+        <article class="panel">
+            <div class="panel-head">
+                <h2>Register Student</h2>
+                <p>Save student profile for face recognition.</p>
+            </div>
+            <form id="registerForm" class="stack-form">
+                <label>Full Name
+                    <input type="text" name="name" placeholder="e.g. Aisha Khan" required>
+                </label>
+                <label>Student ID
+                    <input type="text" name="student_code" placeholder="e.g. CS-2026-012" required>
+                </label>
+                <label>Email
+                    <input type="email" name="email" placeholder="e.g. aisha@college.edu">
+                </label>
+                <label>Face Photo
+                    <input type="file" name="photo" accept="image/*" required>
+                </label>
+                <button class="btn btn-primary" type="submit">Register Face</button>
+            </form>
+            <p id="registerFeedback" class="feedback"></p>
+        </article>
+
+        <article class="panel">
+            <div class="panel-head">
+                <h2>Mark Attendance</h2>
+                <p>Upload a face image to identify and mark present.</p>
+            </div>
+            <form id="attendanceForm" class="stack-form">
+                <label>Attendance Image
+                    <input type="file" name="photo" accept="image/*" required>
+                </label>
+                <button class="btn btn-primary" type="submit">Mark Attendance</button>
+            </form>
+            <p id="attendanceFeedback" class="feedback"></p>
+            <div class="capture-wrap">
+                <video id="cameraPreview" playsinline autoplay muted></video>
+                <div class="capture-actions">
+                    <button class="btn btn-secondary" id="startCameraBtn" type="button">Use Camera</button>
+                    <button class="btn btn-secondary" id="captureBtn" type="button" style="display:none;">Capture Frame</button>
+                </div>
+            </div>
+        </article>
+
+        <article class="panel">
+            <div class="panel-head">
+                <h2>Attendance Stats</h2>
+                <p>Track performance by date range.</p>
+            </div>
+            <div class="chart-wrap" id="chartWrap">
+                <canvas id="attendanceChart" style="width:100%; height:300px;"></canvas>
+            </div>
+        </article>
+
+        <article class="panel">
+            <div class="panel-head">
+                <h2>Recent Activity</h2>
+                <p>Latest attendance operations.</p>
+            </div>
+            <ul id="activityList" class="activity-list">
+                <li>Loading...</li>
+            </ul>
+        </article>
+    </section>
+</main>
+
+<script>
+/* ═══════════════════════════════════════════
+   BACKGROUND PHOTO SYSTEM
+   Uses picsum.photos for demo — replace with
+   real student face thumbnails in production.
+═══════════════════════════════════════════ */
+
+const BG_PHOTOS = (function() {
+    // Real portrait-style face images from picsum
+    const seeds = [
+        { seed:'face1', w:220, h:260 },
+        { seed:'face2', w:190, h:240 },
+        { seed:'face3', w:210, h:260 },
+        { seed:'face4', w:180, h:220 },
+        { seed:'face5', w:200, h:250 },
+        { seed:'face6', w:190, h:230 },
+        { seed:'face7', w:215, h:255 },
+        { seed:'face8', w:200, h:240 },
+        { seed:'face9', w:185, h:225 },
+    ];
+
+    // IDs from picsum that are people/faces
+    const PICSUM_IDS = [
+        64, 65, 91, 92, 93, 94, 95, 96, 97,
+        100, 101, 102, 103, 338, 399, 453,
+        433, 334, 449, 237, 312, 350, 366,
+        488, 503, 509
+    ];
+
+    // Labels for scan annotations
+    const LABELS = [
+        'ID: STU-0042 ✓', 'MATCH 98.2%', 'VERIFIED',
+        'ID: STU-0117 ✓', 'MATCH 95.7%', 'SCANNING...',
+        'ID: STU-0283 ✓', 'MATCH 99.1%', 'VERIFIED',
+    ];
+
+    // Positions: [left%, top%, width, height, rotation-deg, float-duration, float-delay]
+    const POSITIONS = [
+        [1,  8,  180, 220,  -5, 14, 0   ],
+        [5,  55, 160, 200,   3, 16, 2.1 ],
+        [2,  78, 140, 175,  -2, 13, 1.5 ],
+        [82, 5,  190, 235,   6, 15, 0.8 ],
+        [87, 50, 165, 205,  -4, 17, 3.0 ],
+        [85, 78, 150, 185,   3, 12, 1.2 ],
+        [40, 2,  170, 210,  -3, 16, 2.5 ],
+        [38, 80, 155, 195,   5, 14, 0.4 ],
+        [55, 88, 145, 180,  -2, 18, 1.8 ],
+    ];
+
+    return { PICSUM_IDS, LABELS, POSITIONS };
+})();
+
+function buildBgPhotos() {
+    const layer = document.getElementById('bg-photo-layer');
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    BG_PHOTOS.POSITIONS.forEach((pos, i) => {
+        const [leftPct, topPct, w, h, rot, dur, delay] = pos;
+        const id = BG_PHOTOS.PICSUM_IDS[i % BG_PHOTOS.PICSUM_IDS.length];
+        const label = BG_PHOTOS.LABELS[i % BG_PHOTOS.LABELS.length];
+        const animName = i % 2 === 0 ? 'float-a' : 'float-b';
+
+        // Clamp position so cards don't go offscreen
+        const left = Math.min(leftPct / 100 * vw, vw - w - 10);
+        const top  = topPct / 100 * vh;
+
+        const card = document.createElement('div');
+        card.className = 'bg-photo';
+        card.style.cssText = `
+            left: ${left}px;
+            top: ${top}px;
+            width: ${w}px;
+            height: ${h}px;
+            --rot: ${rot}deg;
+            transform: rotate(${rot}deg);
+            animation: ${animName} ${dur}s ease-in-out ${delay}s infinite;
+        `;
+
+        // Show only half on narrow screens (edges)
+        const isEdge = leftPct < 15 || leftPct > 75;
+
+        card.innerHTML = `
+            <img
+                src="https://picsum.photos/id/${id}/${w * 2}/${h * 2}"
+                alt="student face"
+                loading="lazy"
+            />
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+            ${isEdge ? `<div class="scan-ring"></div>` : ''}
+            <div class="scan-dot">${label}</div>
+        `;
+
+        layer.appendChild(card);
+
+        // Stagger fade-in
+        setTimeout(() => {
+            card.classList.add('visible');
+        }, 300 + i * 200);
+    });
+}
+
+// Parallax: subtle drift on mouse move
+document.addEventListener('mousemove', function(e) {
+    const mx = (e.clientX / window.innerWidth  - 0.5) * 2;  // -1 to 1
+    const my = (e.clientY / window.innerHeight - 0.5) * 2;
+
+    document.querySelectorAll('.bg-photo').forEach((card, i) => {
+        const depth = 0.4 + (i % 5) * 0.15;  // varied depth
+        const ox = mx * 14 * depth;
+        const oy = my * 10 * depth;
+        // Keep base rotation
+        const rot = parseFloat(card.style.getPropertyValue('--rot')) || 0;
+        card.style.marginLeft = `${ox}px`;
+        card.style.marginTop  = `${oy}px`;
+    });
+});
+
+// ═══════════════════════════════════════════
+//   DASHBOARD LOGIC (unchanged from original)
+// ═══════════════════════════════════════════
+
+async function updateStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        document.getElementById('metricTotalStudents').textContent = data.totalStudents;
+        document.getElementById('metricPresentToday').textContent = data.presentToday;
+        document.getElementById('metricAttendanceRate').textContent = data.attendanceRate + '%';
+        document.getElementById('metricUnknownAlerts').textContent = data.unknownAlerts;
+        document.getElementById('apiStatus').textContent = "System Online";
+        document.getElementById('apiStatus').style.color = "#4caf50";
+    } catch (e) {
+        document.getElementById('apiStatus').textContent = "API Error";
+        document.getElementById('apiStatus').style.color = "#f44336";
+    }
+}
+
+async function loadActivity() {
+    try {
+        const response = await fetch('/api/activity');
+        const data = await response.json();
+        const list = document.getElementById('activityList');
+        list.innerHTML = '';
+        if (data.length === 0) { list.innerHTML = '<li>No recent activity</li>'; return; }
+        data.forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item.message + ' - ' + new Date(item.time).toLocaleString();
+            list.appendChild(li);
+        });
+    } catch (e) { console.error('Error loading activity:', e); }
+}
+
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const feedback = document.getElementById('registerFeedback');
+    feedback.textContent = 'Registering...'; feedback.className = 'feedback show';
+    try {
+        const response = await fetch('/register', { method: 'POST', body: formData });
+        const result = await response.json();
+        if (result.status === 'success') {
+            feedback.textContent = result.message;
+            feedback.className = 'feedback show success';
+            this.reset(); updateStats(); loadActivity();
+        } else {
+            feedback.textContent = 'Error: ' + result.message;
+            feedback.className = 'feedback show error';
+        }
+    } catch (e) {
+        feedback.textContent = 'Network Error: ' + e.message;
+        feedback.className = 'feedback show error';
+    }
+});
+
+document.getElementById('attendanceForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const feedback = document.getElementById('attendanceFeedback');
+    feedback.textContent = 'Processing attendance...'; feedback.className = 'feedback show';
+    try {
+        const response = await fetch('/attendance', { method: 'POST', body: formData });
+        const result = await response.json();
+        if (result.status === 'success') {
+            feedback.textContent = result.message;
+            feedback.className = 'feedback show success';
+            this.reset(); updateStats(); loadActivity();
+        } else {
+            feedback.textContent = 'Error: ' + result.message;
+            feedback.className = 'feedback show error';
+        }
+    } catch (e) {
+        feedback.textContent = 'Network Error: ' + e.message;
+        feedback.className = 'feedback show error';
+    }
+});
+
+document.getElementById('refreshDashboardBtn').addEventListener('click', function() {
+    updateStats(); loadActivity();
+});
+
+let cameraStream = null;
+const startCameraBtn = document.getElementById('startCameraBtn');
+const captureBtn = document.getElementById('captureBtn');
+const video = document.getElementById('cameraPreview');
+const attendanceFeedback = document.getElementById('attendanceFeedback');
+
+startCameraBtn.addEventListener('click', async function () {
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = cameraStream;
+        video.style.display = "block";
+        captureBtn.style.display = "inline-block";
+    } catch (err) {
+        attendanceFeedback.textContent = "Camera access denied or not available.";
+        attendanceFeedback.className = "feedback show error";
+    }
+});
+
+captureBtn.addEventListener('click', async function () {
+    if (!cameraStream) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+    const formData = new FormData();
+    formData.append("photo", blob, "capture.jpg");
+    attendanceFeedback.textContent = "Processing attendance...";
+    attendanceFeedback.className = "feedback show";
+    try {
+        const response = await fetch('/attendance', { method: 'POST', body: formData });
+        const result = await response.json();
+        if (result.status === 'success') {
+            attendanceFeedback.textContent = result.message;
+            attendanceFeedback.className = "feedback show success";
+            updateStats(); loadActivity();
+        } else {
+            attendanceFeedback.textContent = "Error: " + result.message;
+            attendanceFeedback.className = "feedback show error";
+        }
+    } catch (err) {
+        attendanceFeedback.textContent = "Network Error";
+        attendanceFeedback.className = "feedback show error";
+    }
+    cameraStream.getTracks().forEach(track => track.stop());
+    video.style.display = "none";
+    captureBtn.style.display = "none";
+});
+
+let attendanceChart = null;
+async function loadChart() {
+    try {
+        const response = await fetch('/api/chart-data');
+        const data = await response.json();
+        const ctx = document.getElementById('attendanceChart');
+        if (attendanceChart) attendanceChart.destroy();
+        attendanceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{ label: 'Attendance Per Day', data: data.values, borderWidth: 2 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } catch (err) { console.error("Chart error:", err); }
+}
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', function() {
+    buildBgPhotos();
+    updateStats();
+    loadActivity();
+    loadChart();
+});
+</script>
+</body>
+</html>
